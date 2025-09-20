@@ -1,7 +1,7 @@
 import asyncio
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
-    ApplicationBuilder, CommandHandler, ContextTypes,
+    ApplicationBuilder, CommandHandler, ContextTypes, CallbackQueryHandler,
 )
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -15,8 +15,7 @@ import time
 
 # ----------- 크롤러 함수들 ---------------
 
-def get_product_links():
-    url = "https://m.11st.co.kr/page/a-category?sort=pop&fromPrice=5000&toPrice=7000"
+def get_product_links(url):
     options = Options()
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
@@ -91,40 +90,91 @@ def get_input_value_from_product(product_url):
 TOKEN = "8406261198:AAEPTwxuvJx3CqOtmL3MmfOG38P8x89VLIg"  # 본인 봇 토큰으로 변경
 CHAT_ID = 5002639138  # 본인 텔레그램 user id 또는 그룹 id로 변경
 
+CATEGORIES = {
+    "1": {
+        "name": "전체",
+        "url": "https://m.11st.co.kr/page/a-category?sort=pop&fromPrice=5000&toPrice=7000"
+    },
+    "2": {
+        "name": "식품/건강",
+        "url": "https://m.11st.co.kr/page/a-category?dispCtgr1No=1149696&sort=pop&fromPrice=5000&toPrice=7000"
+    },
+    "3": {
+        "name": "가전/디지털",
+        "url": "https://m.11st.co.kr/page/a-category?dispCtgr1No=1149694&sort=pop&fromPrice=5000&toPrice=7000"
+    },
+    "4": {
+        "name": "컴퓨터",
+        "url": "https://m.11st.co.kr/page/a-category?dispCtgr1No=1149695&sort=pop&fromPrice=5000&toPrice=7000"
+    }
+}
+
 class BotState:
     def __init__(self):
         self.running = False
         self.sent_links = set()
         self.task = None
+        self.current_url = None
 
 state = BotState()
 
+async def crawl_and_send(context: ContextTypes.DEFAULT_TYPE):
+    while state.running:
+        try:
+            if not state.current_url:
+                await context.bot.send_message(chat_id=CHAT_ID, text="오류: 탐색 URL이 설정되지 않았습니다. /stop 후 다시 시도해주세요.")
+                state.running = False
+                break
+
+            links = get_product_links(state.current_url)
+            for link in links:
+                if not state.running:
+                    break
+                if link in state.sent_links:
+                    continue
+                value = get_input_value_from_product(link)
+                if value == 1:
+                    await context.bot.send_message(chat_id=CHAT_ID, text=link)
+                    state.sent_links.add(link)
+            
+            if state.running:
+                await asyncio.sleep(300)
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            await context.bot.send_message(chat_id=CHAT_ID, text=f"에러 발생: {e}")
+            await asyncio.sleep(30)
+
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if state.running:
-        await context.bot.send_message(chat_id=CHAT_ID, text="이미 탐색 중입니다.")
+        await context.bot.send_message(chat_id=CHAT_ID, text="이미 탐색 중입니다. 중단하려면 /stop을 입력하세요.")
+        return
+
+    keyboard = [
+        [InlineKeyboardButton(f"{key}. {cat['name']}", callback_data=key)] for key, cat in CATEGORIES.items()
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("탐색할 카테고리를 선택하세요:", reply_markup=reply_markup)
+
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    category_key = query.data
+
+    if state.running:
+        await query.edit_message_text(text="이미 탐색이 진행 중입니다.")
+        return
+
+    category = CATEGORIES.get(category_key)
+    if not category:
+        await query.edit_message_text(text="잘못된 선택입니다.")
         return
 
     state.running = True
     state.sent_links = set()
-    await context.bot.send_message(chat_id=CHAT_ID, text="상품 탐색을 시작합니다!")
-
-    async def crawl_and_send():
-        while state.running:
-            try:
-                links = get_product_links()
-                for link in links:
-                    if link in state.sent_links:
-                        continue
-                    value = get_input_value_from_product(link)
-                    if value == 1:
-                        await context.bot.send_message(chat_id=CHAT_ID, text=link)
-                        state.sent_links.add(link)
-                await asyncio.sleep(300)
-            except Exception as e:
-                await context.bot.send_message(chat_id=CHAT_ID, text=f"에러 발생: {e}")
-                await asyncio.sleep(30)
-
-    state.task = asyncio.create_task(crawl_and_send())
+    state.current_url = category["url"]
+    await query.edit_message_text(text=f"'{category['name']}' 카테고리 상품 탐색을 시작합니다!")
+    state.task = asyncio.create_task(crawl_and_send(context))
 
 async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not state.running:
@@ -135,6 +185,7 @@ async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if state.task:
         state.task.cancel()
         state.task = None
+    state.current_url = None
     state.sent_links = set()
     await context.bot.send_message(chat_id=CHAT_ID, text="탐색을 중단하고 초기화했습니다.")
 
@@ -144,6 +195,7 @@ def main():
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("stop", stop_command))
+    app.add_handler(CallbackQueryHandler(button_handler))
     print("Bot Started!")
     app.run_polling()
 
