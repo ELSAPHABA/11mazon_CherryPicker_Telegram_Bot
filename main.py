@@ -112,6 +112,8 @@ CATEGORIES = {
 class BotState:
     def __init__(self):
         self.running = False
+        self.pause_event = asyncio.Event()
+        self.pause_event.set()  # 초기 상태는 '실행 중' (일시중지 아님)
         self.sent_links = set()
         self.task = None
         self.current_url = None
@@ -121,6 +123,8 @@ state = BotState()
 async def crawl_and_send(context: ContextTypes.DEFAULT_TYPE):
     while state.running:
         try:
+            await state.pause_event.wait()  # 일시중지 상태면 여기서 대기
+
             if not state.current_url:
                 await context.bot.send_message(chat_id=CHAT_ID, text="오류: 탐색 URL이 설정되지 않았습니다. /stop 후 다시 시도해주세요.")
                 state.running = False
@@ -128,6 +132,7 @@ async def crawl_and_send(context: ContextTypes.DEFAULT_TYPE):
 
             links = get_product_links(state.current_url)
             for link in links:
+                await state.pause_event.wait()  # 각 링크 처리 전 일시중지 확인
                 if not state.running:
                     break
                 if link in state.sent_links:
@@ -172,9 +177,34 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     state.running = True
     state.sent_links = set()
+    state.pause_event.set()  # 시작 시 항상 '실행' 상태로 설정
     state.current_url = category["url"]
     await query.edit_message_text(text=f"'{category['name']}' 카테고리 상품 탐색을 시작합니다!")
     state.task = asyncio.create_task(crawl_and_send(context))
+
+async def pause_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not state.running:
+        await context.bot.send_message(chat_id=CHAT_ID, text="탐색이 시작되지 않았습니다. /start로 시작해주세요.")
+        return
+
+    if not state.pause_event.is_set():
+        await context.bot.send_message(chat_id=CHAT_ID, text="이미 일시중지 상태입니다.")
+        return
+
+    state.pause_event.clear()
+    await context.bot.send_message(chat_id=CHAT_ID, text="탐색을 일시중지합니다. /continue로 재개할 수 있습니다.")
+
+async def continue_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not state.running:
+        await context.bot.send_message(chat_id=CHAT_ID, text="탐색이 시작되지 않았습니다. /start로 시작해주세요.")
+        return
+
+    if state.pause_event.is_set():
+        await context.bot.send_message(chat_id=CHAT_ID, text="이미 탐색이 진행 중입니다. 일시중지하려면 /pause를 입력하세요.")
+        return
+
+    state.pause_event.set()
+    await context.bot.send_message(chat_id=CHAT_ID, text="탐색을 재개합니다.")
 
 async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not state.running:
@@ -186,6 +216,7 @@ async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state.task.cancel()
         state.task = None
     state.current_url = None
+    state.pause_event.set()  # 다음 시작을 위해 '실행' 상태로 리셋
     state.sent_links = set()
     await context.bot.send_message(chat_id=CHAT_ID, text="탐색을 중단하고 초기화했습니다.")
 
@@ -195,6 +226,8 @@ def main():
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("stop", stop_command))
+    app.add_handler(CommandHandler("pause", pause_command))
+    app.add_handler(CommandHandler("continue", continue_command))
     app.add_handler(CallbackQueryHandler(button_handler))
     print("Bot Started!")
     app.run_polling()
@@ -206,9 +239,9 @@ if __name__ == "__main__":
 # 1. 텔레그램으로 /start 명령어를 보내야 봇이 작동
 
 # 개선 계획
-# 1. 탐색 상품 카테고리 다양화 및 카테고리별 모듈화 > 완료, 추가 예정
+# 1. 탐색 상품 카테고리 다양화 및 카테고리별 모듈화 > 완료, 카테고리 추가 예정
 # 2. 상품 가격 범위 조정 기능 추가
 # 3. 텔레그램 봇 함수 이용하여 설정 변경 기능 추가
 # 4. CAPTCHA 우회 기능 - user-agent 변경, 프록시 서버 사용 등
 # 5. URL mobile용 → pc용 변경 기능 추가
-# 6. /pause, /stop 명령어 기능화
+# 6. /pause, /continue, /stop 명령어 기능화 > 완료
