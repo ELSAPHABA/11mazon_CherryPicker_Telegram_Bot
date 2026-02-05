@@ -6,7 +6,17 @@ build-backend = "setuptools.build_meta"
 name = "11mazon-cherrypicker-telegram-bot"
 version = "0.1.0"
 description = "11st Amazon Cherry Picker Telegram Bot"
+authors = [
+  { name = "ELSAPHABA", email = "sb07907@naver.com" },
+]
+license = { file = "LICENSE" }
+readme = "README.md"
 requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
 dependencies = [
     "python-telegram-bot>=20.0",
     "selenium",
@@ -14,8 +24,14 @@ dependencies = [
     "webdriver-manager"
 ]
 authors = [
-    {name = "HongDev"}
+    {name = "ELSAPHABA"}
 ]
+
+[project.urls]
+"Homepage" = "https://github.com/ELSAPHABA/11mazon_CherryPicker_Telegram_Bot"
+"Bug Tracker" = "https://github.com/ELSAPHABA/11mazon_CherryPicker_Telegram_Bot/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]
+include = ["*"]  # Include all files in the root directory as package modules
+exclude = ["tests*"]
