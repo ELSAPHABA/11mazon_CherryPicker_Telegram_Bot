@@ -1,11 +1,15 @@
+# main.py
+
 import asyncio
 import logging
 from telegram.ext import ContextTypes
 from telegram.error import Forbidden, BadRequest
 from elevenmazon_crawler import get_product_links, get_input_value_from_product
 import Telegram_bot
+import os
+from dotenv import load_dotenv
 
-TOKEN = "8406261198:AAEPTwxuvJx3CqOtmL3MmfOG38P8x89VLIg"  # 봇 토큰
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")  # 봇 토큰
 
 async def crawl_and_send(context: ContextTypes.DEFAULT_TYPE):
     chat_id_manager = context.bot_data['chat_id_manager']
@@ -72,7 +76,7 @@ def main():
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
 
-    app = Telegram_bot.create_app(TOKEN, crawl_and_send)
+    app = Telegram_bot.create_app(BOT_TOKEN, crawl_and_send)
     print("Bot Started!")
     app.run_polling()
 
