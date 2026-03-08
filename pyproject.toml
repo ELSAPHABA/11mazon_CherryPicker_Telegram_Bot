@@ -8,13 +8,14 @@ version = "0.1.0"
 description = "11st Amazon Cherry Picker Telegram Bot"
 requires-python = ">=3.9"
 dependencies = [
-    "python-telegram-bot>=20.0",
+    "python-telegram-bot>=22.5",
     "selenium",
     "beautifulsoup4",
-    "webdriver-manager"
+    "webdriver-manager",
+    "python-dotenv"
 ]
 authors = [
-    {name = "HongDev"}
+    {name = "ELSAPHABA"}
 ]
 
 [tool.setuptools.packages.find]
