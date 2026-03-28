@@ -158,8 +158,11 @@ async def register_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("알림 구독이 시작되었습니다. /start 명령어로 탐색을 시작하세요.")
 
 def create_app(BOT_TOKEN, crawler_callback):
+    if not BOT_TOKEN:
+        raise ValueError("BOT_TOKEN 값이 비어 있습니다.")
+
     chat_id_mgr = ChatIdManager('chat_ids.json')
-    app = ApplicationBuilder().BOT_TOKEN(BOT_TOKEN).build()
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
     
     # 데이터 및 콜백 주입
     app.bot_data['chat_id_manager'] = chat_id_mgr

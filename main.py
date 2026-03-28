@@ -9,6 +9,7 @@ import Telegram_bot
 import os
 from dotenv import load_dotenv
 
+load_dotenv()
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")  # 봇 토큰
 
 async def crawl_and_send(context: ContextTypes.DEFAULT_TYPE):
@@ -75,6 +76,9 @@ def main():
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
+
+    if not BOT_TOKEN:
+        raise ValueError("TELEGRAM_BOT_TOKEN이 .env에 설정되어 있지 않습니다.")
 
     app = Telegram_bot.create_app(BOT_TOKEN, crawl_and_send)
     print("Bot Started!")
