@@ -80,7 +80,26 @@ class BotState:
 
 state = BotState()
 
+HELP_TEXT = """사용 가능한 명령어 안내
+
+/help - 도움말을 표시합니다.
+/start - 탐색할 카테고리를 선택하고 탐색을 시작합니다.
+/pause - 진행 중인 탐색을 일시중지합니다.
+/continue - 일시중지된 탐색을 재개합니다.
+/stop - 탐색을 중단하고 상태를 초기화합니다.
+
+사용 순서
+1. /start 로 카테고리를 선택합니다.
+2. 탐색 중 필요하면 /pause 로 일시중지합니다.
+3. 다시 시작하려면 /continue 를 입력합니다.
+4. 완전히 종료하려면 /stop 을 입력합니다.
+"""
+
 # ----------- 핸들러 함수들 ---------------
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message:
+        await update.message.reply_text(HELP_TEXT)
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if state.running:
@@ -155,7 +174,7 @@ async def register_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = update.message.chat_id
         chat_id_manager: ChatIdManager = context.bot_data['chat_id_manager']
         if chat_id_manager.add_id(chat_id):
-            await update.message.reply_text("알림 구독이 시작되었습니다. /start 명령어로 탐색을 시작하세요.")
+            await update.message.reply_text("알림 구독이 시작되었습니다. /help 로 사용 가능한 명령어를 확인하세요.")
 
 def create_app(BOT_TOKEN, crawler_callback):
     if not BOT_TOKEN:
@@ -169,6 +188,7 @@ def create_app(BOT_TOKEN, crawler_callback):
     app.bot_data['crawler_callback'] = crawler_callback
 
     app.add_handler(MessageHandler(filters.COMMAND, register_user), group=-1)
+    app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("stop", stop_command))
     app.add_handler(CommandHandler("pause", pause_command))
