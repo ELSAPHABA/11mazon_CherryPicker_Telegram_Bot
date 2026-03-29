@@ -80,10 +80,21 @@ class BotState:
 
 state = BotState()
 
+def reset_state():
+    current_task = asyncio.current_task()
+    if state.task and state.task is not current_task:
+        state.task.cancel()
+    state.running = False
+    state.current_url = None
+    state.pause_event.set()
+    state.sent_links = set()
+    state.task = None
+
 HELP_TEXT = """사용 가능한 명령어 안내
 
 /help - 도움말을 표시합니다.
 /start - 탐색할 카테고리를 선택하고 탐색을 시작합니다.
+/restart - 진행 중인 탐색을 초기화하고 처음부터 다시 시작합니다.
 /pause - 진행 중인 탐색을 일시중지합니다.
 /continue - 일시중지된 탐색을 재개합니다.
 /stop - 탐색을 중단하고 상태를 초기화합니다.
@@ -94,6 +105,12 @@ HELP_TEXT = """사용 가능한 명령어 안내
 3. 다시 시작하려면 /continue 를 입력합니다.
 4. 완전히 종료하려면 /stop 을 입력합니다.
 """
+
+def build_category_keyboard():
+    keyboard = [
+        [InlineKeyboardButton(f"{key}. {cat['name']}", callback_data=key)] for key, cat in CATEGORIES.items()
+    ]
+    return InlineKeyboardMarkup(keyboard)
 
 # ----------- 핸들러 함수들 ---------------
 
@@ -106,11 +123,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("이미 탐색 중입니다. 중단하려면 /stop을 입력하세요.")
         return
 
-    keyboard = [
-        [InlineKeyboardButton(f"{key}. {cat['name']}", callback_data=key)] for key, cat in CATEGORIES.items()
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("탐색할 카테고리를 선택하세요:", reply_markup=reply_markup)
+    await update.message.reply_text("탐색할 카테고리를 선택하세요:", reply_markup=build_category_keyboard())
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -160,14 +173,15 @@ async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not state.running:
         await update.message.reply_text("이미 중단 상태입니다.")
         return
-    state.running = False
-    if state.task:
-        state.task.cancel()
-        state.task = None
-    state.current_url = None
-    state.pause_event.set()
-    state.sent_links = set()
+    reset_state()
     await update.message.reply_text("탐색을 중단하고 초기화했습니다.")
+
+async def restart_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    reset_state()
+    await update.message.reply_text(
+        "탐색 상태를 초기화했습니다. 다시 카테고리를 선택하세요:",
+        reply_markup=build_category_keyboard(),
+    )
 
 async def register_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message:
@@ -190,6 +204,7 @@ def create_app(BOT_TOKEN, crawler_callback):
     app.add_handler(MessageHandler(filters.COMMAND, register_user), group=-1)
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(CommandHandler("restart", restart_command))
     app.add_handler(CommandHandler("stop", stop_command))
     app.add_handler(CommandHandler("pause", pause_command))
     app.add_handler(CommandHandler("continue", continue_command))

@@ -22,10 +22,13 @@ async def crawl_and_send(context: ContextTypes.DEFAULT_TYPE):
             if not Telegram_bot.state.current_url:
                 ids_to_remove = []
                 for chat_id in chat_id_manager.get_ids():
-                    await context.bot.send_message(chat_id=chat_id, text="오류: 탐색 URL이 설정되지 않았습니다. /stop 후 다시 시도해주세요.")
+                    await context.bot.send_message(
+                        chat_id=chat_id,
+                        text="오류: 탐색 URL이 설정되지 않아 초기화했습니다. /start 또는 /restart 로 다시 시도해주세요."
+                    )
                 for chat_id in ids_to_remove:
                     chat_id_manager.remove_id(chat_id)
-                Telegram_bot.state.running = False
+                Telegram_bot.reset_state()
                 break
 
             links = get_product_links(Telegram_bot.state.current_url)
@@ -59,15 +62,19 @@ async def crawl_and_send(context: ContextTypes.DEFAULT_TYPE):
             break
         except Exception as e:
             logging.error(f"크롤링 또는 메시지 전송 중 에러 발생: {e}")
+            Telegram_bot.reset_state()
             ids_to_remove = []
             for chat_id in chat_id_manager.get_ids():
                 try:
-                    await context.bot.send_message(chat_id=chat_id, text=f"에러 발생: {e}")
+                    await context.bot.send_message(
+                        chat_id=chat_id,
+                        text=f"에러 발생으로 탐색을 초기화했습니다: {e}\n/start 또는 /restart 로 다시 시작해주세요."
+                    )
                 except (Forbidden, BadRequest):
                     ids_to_remove.append(chat_id)
             for chat_id in ids_to_remove:
                 chat_id_manager.remove_id(chat_id)
-            await asyncio.sleep(30)
+            break
 
 # ----------- 봇 실행 ---------------
 
@@ -89,14 +96,15 @@ if __name__ == "__main__":
 
 ''' 
 주의사항
-1. 텔레그램으로 /start 명령어를 보내야 봇이 작동
+1. 텔레그램으로 /start 보내야 봇이 작동
 
-개선 계획
+TODO
 1. 탐색 상품 카테고리 추가
-2. 상품 가격 범위 조정 기능 추가 (&fromPrice=5000&toPrice=7000 쿼리 봇 실행시 입력)
+2. 상품 가격 범위 조정 기능 추가 (/priserange 명령어 등)
 3. 텔레그램 봇 함수 이용하여 설정 변경 기능 추가
 4. CAPTCHA 우회 기능 - user-agent 변경, 프록시 서버 사용 등
 5. URL mobile용 → pc용 변경 기능 추가
-6. /Restart 명령어 구현
-7. README 작성
+6. 오류 발생시 또는 수동 Restart 함수 구현
+7. 오류 발생시 자동 탐색 종료
+8. README 작성
 '''
