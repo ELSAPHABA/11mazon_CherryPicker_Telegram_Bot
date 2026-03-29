@@ -100,11 +100,8 @@ if __name__ == "__main__":
 
 TODO
 1. 탐색 상품 카테고리 추가
-2. 상품 가격 범위 조정 기능 추가 (/priserange 명령어 등)
-3. 텔레그램 봇 함수 이용하여 설정 변경 기능 추가
-4. CAPTCHA 우회 기능 - user-agent 변경, 프록시 서버 사용 등
-5. URL mobile용 → pc용 변경 기능 추가
-6. 오류 발생시 또는 수동 Restart 함수 구현
-7. 오류 발생시 자동 탐색 종료
-8. README 작성
+2. 텔레그램 봇 함수 이용하여 설정 변경 기능 추가
+3. CAPTCHA 우회 기능 - user-agent 변경, 프록시 서버 사용 등
+4. URL mobile용 → pc용 변경 기능 추가
+5. README 작성
 '''
