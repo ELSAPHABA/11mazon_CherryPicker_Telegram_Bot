@@ -99,9 +99,10 @@ if __name__ == "__main__":
 1. 텔레그램으로 /start 보내야 봇이 작동
 
 TODO
-1. 탐색 상품 카테고리 추가
-2. 텔레그램 봇 함수 이용하여 설정 변경 기능 추가
-3. CAPTCHA 우회 기능 - user-agent 변경, 프록시 서버 사용 등
-4. URL mobile용 → pc용 변경 기능 추가
-5. README 작성
+1. /pause, /resume, /stop 반응속도 개선
+2. 탐색 상품 카테고리 추가
+3. 텔레그램 봇 함수 이용하여 설정 변경 기능 추가
+4. CAPTCHA 우회 기능 - user-agent 변경, 프록시 서버 사용 등
+5. URL mobile용 → pc용 변경 기능 추가
+6. README 작성
 '''
