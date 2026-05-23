@@ -6,7 +6,67 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 from webdriver_manager.chrome import ChromeDriverManager
+from urllib.parse import urljoin
 import time
+
+PRODUCT_LINK_SELECTOR = (
+    'a.c-card-item__link[href*="productBasicInfo.tmall"][href*="prdNo="], '
+    'a[data-log-actionid-area="amz_productlist"][data-log-actionid-label="product"][href*="prdNo="]'
+)
+
+
+def _get_attr(element, name):
+    return element.get(name) or ""
+
+
+def _is_deal_block(element):
+    block_type = f"{_get_attr(element, 'data-type')} {_get_attr(element, 'data-testid')}"
+    return "Deal" in block_type
+
+
+def _extract_links_from_grid(grid):
+    links = []
+    seen = set()
+
+    for a_tag in grid.select(PRODUCT_LINK_SELECTOR):
+        link = a_tag.get("href")
+        if not link:
+            continue
+
+        link = urljoin("https://m.11st.co.kr", link)
+        if link in seen:
+            continue
+
+        seen.add(link)
+        links.append(link)
+
+    return links
+
+
+def extract_standard_product_links(page_source):
+    soup = BeautifulSoup(page_source, "html.parser")
+
+    product_grids = soup.select(
+        '[data-type="ProductGrid_Standard"], [data-testid="ProductGrid_Standard"]'
+    )
+    if not product_grids:
+        product_grids = [
+            row
+            for row in soup.select(".carrier-list .l-grid__row, .carrier-list ul")
+            if row.select(PRODUCT_LINK_SELECTOR) and not _is_deal_block(row)
+        ]
+
+    links = []
+    seen = set()
+    for grid in product_grids:
+        for link in _extract_links_from_grid(grid):
+            if link in seen:
+                continue
+            seen.add(link)
+            links.append(link)
+
+    return links
+
 
 def get_product_links(url):
     options = Options()
@@ -14,29 +74,21 @@ def get_product_links(url):
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-    driver.get(url)
+    try:
+        driver.get(url)
 
-    last_height = driver.execute_script("return document.body.scrollHeight")
-    while True:
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        time.sleep(1.5)
-        new_height = driver.execute_script("return document.body.scrollHeight")
-        if new_height == last_height:
-            break
-        last_height = new_height
+        last_height = driver.execute_script("return document.body.scrollHeight")
+        while True:
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(1.5)
+            new_height = driver.execute_script("return document.body.scrollHeight")
+            if new_height == last_height:
+                break
+            last_height = new_height
 
-    soup = BeautifulSoup(driver.page_source, "html.parser")
-    li_list = soup.select("#blckSn-7732 > li.l-grid__col.l-grid__col--12.medium-6")
-    links = []
-    for li in li_list:
-        a_tag = li.select_one("div > div:nth-child(1) > div > a")
-        if a_tag and a_tag.has_attr('href'):
-            link = a_tag['href']
-            if link.startswith('/'):
-                link = "https://m.11st.co.kr" + link
-            links.append(link)
-    driver.quit()
-    return links
+        return extract_standard_product_links(driver.page_source)
+    finally:
+        driver.quit()
 
 def get_input_value_from_product(product_url):
     options = Options()
